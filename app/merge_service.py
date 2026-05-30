@@ -14,11 +14,12 @@ from app.logger import logger
 def _csv_buffer(df: pd.DataFrame, columns: list[str]) -> io.StringIO:
     selected = df.loc[:, columns].copy()
     for col in selected.columns:
-        col_series = selected[col].astype(str).str.strip()
-        mask = col_series.str.lower().isin(("<na>", "nan", "none", "")) | selected[col].isna()
-        selected[col] = col_series.where(~mask, "")
+        if selected[col].dtype == object:
+            col_series = selected[col].astype(str).str.strip()
+            mask = col_series.str.lower().isin(("<na>", "nan", "none", "")) | selected[col].isna()
+            selected[col] = col_series.where(~mask, "")
     buf = io.StringIO()
-    selected.to_csv(buf, index=False, header=False, lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
+    selected.to_csv(buf, index=False, header=False, lineterminator="\n", na_rep="", quoting=csv.QUOTE_MINIMAL)
     buf.seek(0)
     return buf
 

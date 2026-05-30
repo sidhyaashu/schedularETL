@@ -45,6 +45,8 @@ class Settings:
     api_retry_backoff_2: int = int(os.getenv("API_RETRY_BACKOFF_2", "5"))
     api_retry_backoff_3: int = int(os.getenv("API_RETRY_BACKOFF_3", "10"))
     api_timeout_seconds: int = int(os.getenv("API_TIMEOUT_SECONDS", "60"))
+    api_connect_timeout_seconds: int = int(os.getenv("API_CONNECT_TIMEOUT_SECONDS", "15"))
+    api_read_timeout_seconds: int = int(os.getenv("API_READ_TIMEOUT_SECONDS", "30"))
     etl_batch_size: int = int(os.getenv("ETL_BATCH_SIZE", "10000"))
     etl_batch_sleep: float = float(os.getenv("ETL_BATCH_SLEEP", "0"))
     ingestion_log_retention_days: int = int(os.getenv("INGESTION_LOG_RETENTION_DAYS", "30"))

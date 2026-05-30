@@ -27,7 +27,7 @@ def fetch_accord_feed(filename: str, date_ddmmyyyy: str) -> tuple[int, Any]:
                     "sub": "",
                     "token": settings.accord_api_token,
                 },
-                timeout=settings.api_timeout_seconds,
+                timeout=(settings.api_connect_timeout_seconds, settings.api_read_timeout_seconds),
                 stream=True,
             )
 
