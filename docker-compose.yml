@@ -1,0 +1,60 @@
+services:
+
+  # ── Production scheduler ─────────────────────────────────────────────────
+  scheduler_ingestion:
+    build: .
+    image: clean-scheduler-ingestion:latest
+    container_name: clean_scheduler_ingestion
+    profiles: ["prod"]
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: ["python", "-m", "app.main"]
+    restart: unless-stopped
+
+  # ── Local test environment ────────────────────────────────────────────────
+  # Spin up with: docker compose --profile test up
+  postgres_test:
+    image: postgres:16-alpine
+    container_name: accord_postgres_test
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: accord
+      POSTGRES_PASSWORD: accord_test
+      POSTGRES_DB: financial_db
+    ports:
+      - "5435:5432"          # exposed on 5435 to avoid conflicts with local postgres
+    volumes:
+      - accord_pgdata:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d   # auto-runs ingestion_log_tables.sql on first start
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U accord -d financial_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  scheduler_test:
+    build: .
+    image: clean-scheduler-ingestion:latest
+    container_name: clean_scheduler_test
+    profiles: ["test"]
+    env_file:
+      - .env.test
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ACCORD_MODE=mock
+      - MOCK_DATA_DIR=/app/data
+      - MOCK_ROW_LIMIT=500
+      - DATABASE_URL=postgresql+psycopg2://accord:accord_test@postgres_test:5432/financial_db
+    volumes:
+      - ./data:/app/data:ro   # mount local data folder read-only into container
+    command: ["python", "-m", "app.main"]
+    depends_on:
+      postgres_test:
+        condition: service_healthy
+    restart: "no"             # don't auto-restart in test mode
+
+volumes:
+  accord_pgdata:
+

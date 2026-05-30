@@ -1,0 +1,6 @@
+.env.*
+CompanyFundamental_API_Frequency.txt
+CompanyFundamental_API_Frequency.xlsx
+data
+__pycache__
+.env 
