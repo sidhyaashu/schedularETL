@@ -6,7 +6,7 @@ A production-grade, highly efficient, and memory-safe ETL pipeline that ingests,
 
 ## 🚀 Key Features
 
-* **Streaming NDJSON Parser**: Streams and processes records line-by-line using Python generators, keeping the memory footprint low even when processing files over 1GB (e.g., `Shpsummary` and `Shp_details`).
+* **Flexible JSON/NDJSON Parser**: Streams and processes records line-by-line using Python generators, keeping the memory footprint low. Supports standard single-line JSON, multi-line prettified JSON arrays, and streaming NDJSON formats.
 * **Auto-Migrations**: Inspects the database catalog on startup and executes missing SQL schemas from the `schemas/` directory dynamically, with automatic cleanup of trailing SQL syntax anomalies.
 * **Dual-Stage Deduplication**: Drops duplicate records within the current batch in Pandas, followed by a database-level `ON CONFLICT` merge query to prevent double-inserting unchanged data.
 * **Staggered EOD Scheduling**: Launches the 23 End-of-Day feeds spaced 1 minute apart to prevent network and database CPU spikes.
@@ -14,77 +14,62 @@ A production-grade, highly efficient, and memory-safe ETL pipeline that ingests,
 
 ---
 
-## 🛠️ Getting Started (Local Development & Testing)
-
-The test environment uses local sample files under the `data/` directory to simulate the Accord API. It restricts row ingestion to `500` rows per file for fast cycle times.
-
-### 1. Spin up the Test Environment (Docker)
-This starts a PostgreSQL database (port `5435`) and the scheduler service in mock mode:
-```bash
-docker compose --profile test up --build
-```
-
-### 2. Trigger an Immediate Test Run (Run-Once Mode)
-If you do not want to wait for the cron schedule times during testing, you can trigger a sequential ingestion of all 26 feeds immediately:
-```bash
-docker compose --profile test run scheduler_test python -m app.main --run-once
-```
-
-### 3. Run Locally (Without Docker)
-Make sure you have a local PostgreSQL instance running and configured in `.env`.
-
-* **Windows Command Prompt (CMD)**:
-  ```cmd
-  set ACCORD_MODE=mock
-  set MOCK_ROW_LIMIT=500
-  python -m app.main
-  ```
-
-* **Windows PowerShell**:
-  ```powershell
-  $env:ACCORD_MODE="mock"
-  $env:MOCK_ROW_LIMIT="500"
-  python -m app.main
-  ```
-
-* **Linux/macOS**:
-  ```bash
-  ACCORD_MODE=mock MOCK_ROW_LIMIT=500 python -m app.main
-  ```
-
----
-
-## 📦 Production Deployment
+## 🛠️ Local Development & Running
 
 ### 1. Configure the `.env` file
-Create a `.env` file in the root directory. Configure it with your production database credentials and Accord token. Make sure `ACCORD_MODE` is set to `real`:
+Create a `.env` file in the root directory. Configure it with your database credentials and Accord API token:
 
 ```ini
 DATABASE_URL=postgresql+psycopg2://username:password@host:5432/financial_db?sslmode=require
 ACCORD_API_TOKEN=your_accord_production_token
-ACCORD_MODE=real
-# (For full configuration parameters, refer to the .env.example file)
 ```
 
-### 2. Start the Production Service
-Run the container in detached (background) mode under the `prod` profile:
+### 2. Run Directly on Host (Python)
+Make sure dependencies are installed:
+```bash
+pip install -r requirements.txt
+```
+To start the scheduled listener:
+```bash
+python -m app.main
+```
+
+To trigger a manual run-once execution (ingests all feeds immediately):
+```bash
+python -m app.main --run-once
+```
+
+---
+
+## 📦 Production Deployment (Docker Compose)
+
+### 1. Start the Production Service
+Build and run the container in the background (detached mode):
 ```bash
 # Build the production image
-docker compose --profile prod build
+docker compose build
 
 # Launch the container in the background
-docker compose --profile prod up -d
+docker compose up -d
 ```
 The container will auto-restart if it crashes (`restart: unless-stopped`).
+
+### 2. Trigger an Immediate Ingestion Run (Docker Run-Once)
+To trigger a manual run-once sequence through Docker Compose:
+```bash
+docker compose run --rm scheduler_ingestion python -m app.main --run-once
+```
 
 ---
 
 ## 🕒 Cron Timing & Staggering
 
-In production, feeds are requested from Accord based on their daily publish times:
+In production, feeds are requested from Accord based on their daily publish times (with a 5-minute buffer to ensure data is generated on the server):
 
-1. **Company Master (`Company_master`)**: Runs 4 times a day (Morning runs at `10:01 AM` and `10:30 AM`; Night runs at `10:31 PM` and `11:00 PM`).
-2. **Results (`Resultsf_IND_Ex1`, `Resultsf_IND_Cons_Ex1`)**: Checked hourly at minute `1` between 9:00 AM and 11:00 PM (e.g. `15:01`, `18:01`...), plus a final run at `11:31 PM`.
+1. **Company Master (`Company_master`)**: Runs 4 times a day:
+   * Morning runs at `10:05 AM` and `10:35 AM`
+   * Night runs at `10:35 PM` and `11:05 PM`
+2. **Results (`Resultsf_IND_Ex1`, `Resultsf_IND_Cons_Ex1`)**: Checked hourly at minute `5` between 9:00 AM and 11:00 PM (e.g. `09:05`, `10:05`...), plus a final run at `11:35 PM`.
 3. **End of Day (EOD) Feeds (23 feeds)**: Run once daily starting at `10:31 PM`. The scheduler staggers them **1 minute apart** (e.g., `22:31`, `22:32`, `22:33`...) to load balance connections.
 
 ---
@@ -94,14 +79,14 @@ In production, feeds are requested from Accord based on their daily publish time
 Accord uses the `flag` field to signal changes. The pipeline processes `A` (Add), `O` (Original/Update), and `D` (Delete) rows as follows:
 
 ```
-[Raw NDJSON Feed] ──> [Pandas: Drop Duplicates (Keep Last)] ──> [Temp Staging Table]
-                                                                        │
-                                   ┌────────────────────────────────────┴────────────────────────────────────┐
-                                   ▼                                                                         ▼
-                         [flag = 'D' (Delete)]                                                    [flag = 'A' or 'O' (Upsert)]
-                                   │                                                                         │
-    DELETE FROM target WHERE target.pk = staging.pk                         INSERT INTO target AS t ON CONFLICT (pk) DO UPDATE SET ...
-                                                                            WHERE EXCLUDED.col IS DISTINCT FROM t.col
+[Raw JSON Feed] ──> [Pandas: Drop Duplicates (Keep Last)] ──> [Temp Staging Table]
+                                                                      │
+                                 ┌────────────────────────────────────┴────────────────────────────────────┐
+                                 ▼                                                                         ▼
+                       [flag = 'D' (Delete)]                                                    [flag = 'A' or 'O' (Upsert)]
+                                 │                                                                         │
+  DELETE FROM target WHERE target.pk = staging.pk                         INSERT INTO target AS t ON CONFLICT (pk) DO UPDATE SET ...
+                                                                          WHERE EXCLUDED.col IS DISTINCT FROM t.col
 ```
 
 1. **Deduplication**: In Pandas, records are deduplicated based on their primary keys, keeping only the **last** occurrence. Since feeds are chronological, the last occurrence holds the final daily state (e.g., if a record was updated and then deleted, only the deletion remains).
