@@ -9,10 +9,6 @@ def resolve_section(feed_name: str) -> str:
 
 
 def fetch_accord_feed(filename: str, date_ddmmyyyy: str) -> tuple[int, Any]:
-    # ── Test / mock mode ────────────────────────────────────────────────────
-    if settings.accord_mode == "mock":
-        from app.mock_accord_client import fetch_accord_feed as _mock
-        return _mock(filename, date_ddmmyyyy)
     # ── Production: real HTTP call ───────────────────────────────────────────
     backoff = [settings.api_retry_backoff_1, settings.api_retry_backoff_2, settings.api_retry_backoff_3]
 

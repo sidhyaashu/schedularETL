@@ -38,10 +38,32 @@ def payload_to_dataframe(payload: Any) -> pd.DataFrame:
         else:
             line = raw_line.strip()
 
-        if not line or line in ("{", "}", "]}", "]}"):
+        if not line or line in ("{", "}", "]}", "]", "[", "[]", "[]}"):
             continue
 
-        # Strip the leading {"Table":[ on the first row
+        # Check for standard single-line JSON (starts with {"Table":[ and ends with ]})
+        if line.startswith('{"Table":[') and line.endswith(']}'):
+            # Strip {"Table":[ from start and ]} from end
+            line_content = line[len('{"Table":['):-2].strip()
+            if not line_content:
+                continue
+            try:
+                # Wrap in brackets to make it a valid JSON array
+                chunk_rows = json.loads("[" + line_content + "]")
+                if isinstance(chunk_rows, list):
+                    rows.extend(chunk_rows)
+                else:
+                    rows.append(chunk_rows)
+                continue
+            except json.JSONDecodeError:
+                # Fallback to standard line parsing
+                pass
+
+        # Strip trailing comma separator (helpful for prettified JSON arrays)
+        if line.endswith(","):
+            line = line[:-1].strip()
+
+        # Strip the leading {"Table":[ on the first row of NDJSON
         if line.startswith('{"Table":['):
             line = line[len('{"Table":['):]
 
@@ -59,7 +81,10 @@ def payload_to_dataframe(payload: Any) -> pd.DataFrame:
 
         try:
             row = json.loads(line)
-            rows.append(row)
+            if isinstance(row, list):
+                rows.extend(row)
+            else:
+                rows.append(row)
         except json.JSONDecodeError:
             # Skip malformed lines silently
             continue

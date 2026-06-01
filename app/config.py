@@ -71,14 +71,7 @@ class Settings:
     eod_start_minute: int = int(os.getenv("EOD_START_MINUTE", "31"))
     eod_retry_offsets_minutes: str = os.getenv("EOD_RETRY_OFFSETS_MINUTES", "10,30,60")
     eod_max_extra_hits_per_feed: int = int(os.getenv("EOD_MAX_EXTRA_HITS_PER_FEED", "3"))
-    # ── Mock / test mode ──────────────────────────────────────────────────────
-    # Set ACCORD_MODE=mock to read from local data files instead of the real API.
-    accord_mode: str = os.getenv("ACCORD_MODE", "real")
-    # Path to the folder containing the Accord-provided *.txt sample data files.
-    mock_data_dir: str = os.getenv("MOCK_DATA_DIR", "data")
-    # Limit rows returned per feed in mock mode (0 = no limit, full file).
-    # Useful for quick tests against large files (e.g. Resultsf_IND_Ex1.txt = 863 MB).
-    mock_row_limit: int = int(os.getenv("MOCK_ROW_LIMIT", "0"))
+
 
 
 settings = Settings()
