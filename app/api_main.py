@@ -38,9 +38,9 @@ def _result(
     }
 
 
-def resolve_requested_date():
+def resolve_requested_date(target_date: str | None = None):
     tz = ZoneInfo(settings.timezone)
-    date_ddmmyyyy = settings.api_date or datetime.now(tz).strftime("%d%m%Y")
+    date_ddmmyyyy = target_date or settings.api_date or datetime.now(tz).strftime("%d%m%Y")
     return date_ddmmyyyy, parse_ddmmyyyy(date_ddmmyyyy)
 
 
@@ -76,8 +76,8 @@ def _generate_payload_chunks(payload: Any, chunk_size: int):
         yield chunk
 
 
-def process_single_feed(feed_name: str, engine: Engine = ENGINE) -> dict[str, Any]:
-    date_ddmmyyyy, requested_date = resolve_requested_date()
+def process_single_feed(feed_name: str, engine: Engine = ENGINE, target_date: str | None = None) -> dict[str, Any]:
+    date_ddmmyyyy, requested_date = resolve_requested_date(target_date)
     log_id = start_ingestion_log(engine, feed_name, requested_date)
     started = time.time()
     logger.info(f"Processing feed={feed_name}, date={date_ddmmyyyy}")

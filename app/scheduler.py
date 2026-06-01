@@ -47,6 +47,7 @@ def _schedule_retry(
     attempt: int,
     max_extra_hits: int,
     retry_offsets: list[int],
+    target_date: str,
 ) -> None:
     if not _can_retry(category, feed_name, max_extra_hits):
         logger.warning(f"Retry budget exhausted: category={category}, feed={feed_name}")
@@ -56,8 +57,8 @@ def _schedule_retry(
     job_id = f"retry_{category}_{feed_name.lower()}_{_today_key()}_{attempt}_{int(run_date.timestamp())}"
 
     def _job() -> None:
-        logger.info(f"Running retry: category={category}, feed={feed_name}, attempt={attempt}")
-        result = process_single_feed(feed_name)
+        logger.info(f"Running retry: category={category}, feed={feed_name}, attempt={attempt}, target_date={target_date}")
+        result = process_single_feed(feed_name, target_date=target_date)
         if _is_no_content(result):
             next_attempt = attempt + 1
             if next_attempt <= len(retry_offsets):
@@ -69,6 +70,7 @@ def _schedule_retry(
                     attempt=next_attempt,
                     max_extra_hits=max_extra_hits,
                     retry_offsets=retry_offsets,
+                    target_date=target_date,
                 )
         else:
             logger.info(f"Retry stopped: category={category}, feed={feed_name}, status={result.get('status')}")
@@ -79,8 +81,9 @@ def _schedule_retry(
 
 def _run_company_master(scheduler: BlockingScheduler) -> None:
     offsets = parse_int_list(settings.company_master_extra_retry_minutes)
+    target_date = settings.api_date or get_now().strftime("%d%m%Y")
     for feed in COMPANY_MASTER_FEEDS:
-        result = process_single_feed(feed)
+        result = process_single_feed(feed, target_date=target_date)
         if _is_no_content(result) and offsets:
             _schedule_retry(
                 scheduler,
@@ -90,6 +93,7 @@ def _run_company_master(scheduler: BlockingScheduler) -> None:
                 attempt=1,
                 max_extra_hits=settings.company_master_max_extra_hits,
                 retry_offsets=offsets,
+                target_date=target_date,
             )
 
 
@@ -98,7 +102,8 @@ def _run_results(scheduler: BlockingScheduler, window_label: str) -> None:
     if window_label not in allowed:
         return
 
-    results = [process_single_feed(feed) for feed in RESULTS_FEEDS]
+    target_date = settings.api_date or get_now().strftime("%d%m%Y")
+    results = [process_single_feed(feed, target_date=target_date) for feed in RESULTS_FEEDS]
     offsets = parse_int_list(settings.results_extra_retry_minutes)
     if not offsets:
         return
@@ -113,11 +118,13 @@ def _run_results(scheduler: BlockingScheduler, window_label: str) -> None:
                 attempt=1,
                 max_extra_hits=settings.results_max_extra_hits,
                 retry_offsets=offsets,
+                target_date=target_date,
             )
 
 
 def _run_eod_feed(scheduler: BlockingScheduler, feed_name: str) -> None:
-    result = process_single_feed(feed_name)
+    target_date = settings.api_date or get_now().strftime("%d%m%Y")
+    result = process_single_feed(feed_name, target_date=target_date)
     offsets = parse_int_list(settings.eod_retry_offsets_minutes)
     if _is_no_content(result) and offsets:
         _schedule_retry(
@@ -128,6 +135,7 @@ def _run_eod_feed(scheduler: BlockingScheduler, feed_name: str) -> None:
             attempt=1,
             max_extra_hits=settings.eod_max_extra_hits_per_feed,
             retry_offsets=offsets,
+            target_date=target_date,
         )
 
 
