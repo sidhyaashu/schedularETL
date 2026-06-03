@@ -16,7 +16,7 @@ def validate_payload_df(df: pd.DataFrame, table_name: str, pk_cols: list[str]) -
     df_cols = set(str(c).lower() for c in df.columns)
 
     if "flag" not in df_cols:
-        errors.append(f"{table_name}: required column 'flag' missing")
+        warnings.append(f"{table_name}: column 'flag' is missing from payload; defaulting all rows to flag='A'")
 
     missing_pk = [pk for pk in pk_cols if pk.lower() not in df_cols]
     if missing_pk:

@@ -39,8 +39,17 @@ def _result(
 
 
 def resolve_requested_date(target_date: str | None = None):
+    from datetime import timedelta
     tz = ZoneInfo(settings.timezone)
-    date_ddmmyyyy = target_date or settings.api_date or datetime.now(tz).strftime("%d%m%Y")
+    now_dt = datetime.now(tz)
+    
+    # If running after midnight but before 6:00 AM, and no target_date is provided,
+    # default to yesterday's date to handle delayed EOD runs correctly.
+    if not target_date and not settings.api_date and 0 <= now_dt.hour < 6:
+        date_ddmmyyyy = (now_dt - timedelta(days=1)).strftime("%d%m%Y")
+    else:
+        date_ddmmyyyy = target_date or settings.api_date or now_dt.strftime("%d%m%Y")
+        
     return date_ddmmyyyy, parse_ddmmyyyy(date_ddmmyyyy)
 
 

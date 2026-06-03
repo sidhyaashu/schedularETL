@@ -97,6 +97,8 @@ def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [normalize_column_name(c) for c in df.columns]
     df = df.loc[:, ~pd.Index(df.columns).duplicated()]
     df = df.replace(r"^\s*$", None, regex=True)
-    if "flag" in df.columns:
+    if "flag" not in df.columns:
+        df["flag"] = "A"
+    else:
         df["flag"] = df["flag"].astype(str).str.upper().str.strip()
     return df

@@ -2,7 +2,7 @@
 import os
 import sys
 from app.db import ENGINE, wait_for_db, run_auto_migration
-from app.ingestion_log import create_log_tables
+from app.ingestion_log import create_log_tables, cleanup_stale_started_logs
 from app.logger import logger
 from app.scheduler import start_scheduler
 from app.api_main import process_single_feed
@@ -13,6 +13,7 @@ def main() -> None:
     logger.info("Starting scheduler + ingestion service")
     wait_for_db(ENGINE)
     create_log_tables(ENGINE)
+    cleanup_stale_started_logs(ENGINE)
     run_auto_migration(ENGINE)
     
     if os.getenv("RUN_ONCE") == "true" or "--run-once" in sys.argv:

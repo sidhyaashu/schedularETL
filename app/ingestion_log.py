@@ -84,3 +84,22 @@ def cleanup_old_ingestion_logs(engine: Engine | None = None) -> int:
     logger.info(f"Ingestion log cleanup: deleted={deleted}, retention_days={settings.ingestion_log_retention_days}")
     return deleted
 
+
+def cleanup_stale_started_logs(engine: Engine | None = None) -> int:
+    engine = engine or _default_engine()
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("""
+                UPDATE ingestion_run_logs
+                SET status = 'ABANDONED',
+                    error_message = 'Service restarted or terminated unexpectedly',
+                    finished_at = now()
+                WHERE status = 'STARTED'
+            """)
+        )
+    abandoned = int(result.rowcount or 0)
+    if abandoned > 0:
+        logger.info(f"Ingestion log startup cleanup: marked {abandoned} stale logs as ABANDONED")
+    return abandoned
+
+
