@@ -98,7 +98,7 @@ def process_single_feed(feed_name: str, engine: Engine = ENGINE, target_date: st
             finish_ingestion_log(engine, log_id, "TABLE_NOT_FOUND", error_message=msg)
             return _result(feed_name, "TABLE_NOT_FOUND", error_message=msg)
 
-        http_status, payload = fetch_accord_feed(feed_name, date_ddmmyyyy)
+        http_status, response = fetch_accord_feed(feed_name, date_ddmmyyyy)
 
         if http_status == 204:
             finish_ingestion_log(engine, log_id, "NO_CONTENT", http_status=204)
@@ -109,8 +109,8 @@ def process_single_feed(feed_name: str, engine: Engine = ENGINE, target_date: st
             finish_ingestion_log(engine, log_id, "API_ERROR", http_status=http_status, error_message=msg)
             return _result(feed_name, "API_ERROR", http_status=http_status, error_message=msg)
 
-        if payload is None:
-            msg = f"HTTP {http_status} but payload empty"
+        if response is None:
+            msg = f"HTTP {http_status} but response empty"
             finish_ingestion_log(engine, log_id, "EMPTY", http_status=http_status, error_message=msg)
             return _result(feed_name, "EMPTY", http_status=http_status, error_message=msg)
 
@@ -122,45 +122,49 @@ def process_single_feed(feed_name: str, engine: Engine = ENGINE, target_date: st
 
         chunk_size = settings.etl_batch_size
 
-        for payload_chunk in _generate_payload_chunks(payload, chunk_size):
-            df_chunk = payload_to_dataframe(payload_chunk)
-            if df_chunk.empty:
-                continue
+        try:
+            payload_lines = response.iter_lines()
+            for payload_chunk in _generate_payload_chunks(payload_lines, chunk_size):
+                df_chunk = payload_to_dataframe(payload_chunk)
+                if df_chunk.empty:
+                    continue
 
-            df_chunk, renames = apply_column_renames(df_chunk, feed_name, return_applied=True)
-            if renames and is_first_chunk:
-                logger.info(f"{feed_name}: applied renames={renames}")
+                df_chunk, renames = apply_column_renames(df_chunk, feed_name, return_applied=True)
+                if renames and is_first_chunk:
+                    logger.info(f"{feed_name}: applied renames={renames}")
 
-            df_chunk = normalize_dataframe(df_chunk)
-            chunk_rows = len(df_chunk)
-            total_rows_received += chunk_rows
+                df_chunk = normalize_dataframe(df_chunk)
+                chunk_rows = len(df_chunk)
+                total_rows_received += chunk_rows
 
-            pk_cols = PRIMARY_KEYS.get(table_name.lower(), [])
-            if is_first_chunk:
-                validation = validate_payload_df(df_chunk, table_name, pk_cols)
-                for warning in validation["warnings"]:
-                    logger.warning(f"{feed_name}: {warning}")
+                pk_cols = PRIMARY_KEYS.get(table_name.lower(), [])
+                if is_first_chunk:
+                    validation = validate_payload_df(df_chunk, table_name, pk_cols)
+                    for warning in validation["warnings"]:
+                        logger.warning(f"{feed_name}: {warning}")
 
-                if not validation["valid"]:
-                    msg = "; ".join(validation["errors"])
-                    finish_ingestion_log(
-                        engine,
-                        log_id,
-                        "VALIDATION_FAILED",
-                        http_status=http_status,
-                        rows_received=total_rows_received,
-                        error_message=msg,
-                    )
-                    return _result(feed_name, "VALIDATION_FAILED", http_status=http_status, rows_received=total_rows_received, error_message=msg)
-                is_first_chunk = False
+                    if not validation["valid"]:
+                        msg = "; ".join(validation["errors"])
+                        finish_ingestion_log(
+                            engine,
+                            log_id,
+                            "VALIDATION_FAILED",
+                            http_status=http_status,
+                            rows_received=total_rows_received,
+                            error_message=msg,
+                        )
+                        return _result(feed_name, "VALIDATION_FAILED", http_status=http_status, rows_received=total_rows_received, error_message=msg)
+                    is_first_chunk = False
 
-            merge = process_dataframe(engine, table_name, df_chunk, feed_name)
-            total_processed_rows += int(merge["rows_upserted"]) + int(merge["rows_deleted"])
-            total_rows_rejected += merge["rows_rejected"]
-            all_rejected_fincodes.extend(merge["rejected_fincodes"])
+                merge = process_dataframe(engine, table_name, df_chunk, feed_name)
+                total_processed_rows += int(merge["rows_upserted"]) + int(merge["rows_deleted"])
+                total_rows_rejected += merge["rows_rejected"]
+                all_rejected_fincodes.extend(merge["rejected_fincodes"])
 
-            del df_chunk
-            gc.collect()
+                del df_chunk
+                gc.collect()
+        finally:
+            response.close()
 
         if total_rows_received == 0:
             finish_ingestion_log(engine, log_id, "EMPTY", http_status=http_status)

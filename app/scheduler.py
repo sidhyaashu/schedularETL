@@ -8,6 +8,15 @@ from app.config import COMPANY_MASTER_FEEDS, EOD_FEEDS, RESULTS_FEEDS, settings
 from app.logger import logger
 
 
+CONSOLIDATED_PAIRS = {
+    "Finance_bs": "Finance_cons_bs",
+    "Finance_pl": "Finance_cons_pl",
+    "Finance_cf": "Finance_cons_cf",
+    "Finance_fr": "Finance_cons_fr",
+    "company_equity": "company_equity_cons",
+}
+
+
 def get_now() -> datetime:
     return datetime.now(ZoneInfo(settings.timezone))
 
@@ -31,6 +40,12 @@ def _run_results(window_label: str) -> None:
 def _run_eod_feed(feed_name: str) -> None:
     target_date = settings.api_date or get_now().strftime("%d%m%Y")
     process_single_feed(feed_name, target_date=target_date)
+    
+    # Check if there is a dependent consolidated feed to run sequentially
+    cons_feed = CONSOLIDATED_PAIRS.get(feed_name)
+    if cons_feed:
+        logger.info(f"Triggering consolidated feed {cons_feed} sequentially after standalone {feed_name} completion")
+        process_single_feed(cons_feed, target_date=target_date)
 
 
 def register_jobs(scheduler: BlockingScheduler) -> None:
@@ -48,6 +63,9 @@ def register_jobs(scheduler: BlockingScheduler) -> None:
 
     base = get_now().replace(hour=settings.eod_start_hour, minute=settings.eod_start_minute, second=0, microsecond=0)
     for idx, feed in enumerate(EOD_FEEDS):
+        # We skip scheduling consolidated feeds separately since they are triggered sequentially by their standalone counterparts
+        if feed in CONSOLIDATED_PAIRS.values():
+            continue
         run_dt = base + timedelta(minutes=idx)
         scheduler.add_job(lambda f=feed: _run_eod_feed(f), "cron", hour=run_dt.hour, minute=run_dt.minute, id=f"eod_{feed.lower()}", replace_existing=True, max_instances=1, coalesce=True)
 

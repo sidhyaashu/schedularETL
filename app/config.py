@@ -40,7 +40,7 @@ class Settings:
     )
     timezone: str = os.getenv("TIMEZONE", "Asia/Kolkata")
     api_date: str = os.getenv("API_DATE", "").strip()
-    api_max_retries: int = int(os.getenv("API_MAX_RETRIES", "3"))
+    api_max_retries: int = int(os.getenv("API_MAX_RETRIES", "2"))
     api_retry_backoff_1: int = int(os.getenv("API_RETRY_BACKOFF_1", "2"))
     api_retry_backoff_2: int = int(os.getenv("API_RETRY_BACKOFF_2", "5"))
     api_retry_backoff_3: int = int(os.getenv("API_RETRY_BACKOFF_3", "10"))

@@ -26,13 +26,26 @@ def payload_to_dataframe(payload: Any) -> pd.DataFrame:
 
     # Case 3: Raw string
     if isinstance(payload, str):
+        try:
+            parsed = json.loads(payload)
+            if isinstance(parsed, dict) and "Table" in parsed:
+                table = parsed["Table"]
+                if isinstance(table, list):
+                    return pd.DataFrame(table)
+            elif isinstance(parsed, list):
+                return pd.DataFrame(parsed)
+        except json.JSONDecodeError:
+            pass
         lines = payload.splitlines()
     else:
         # Case 4: Iterable/stream of lines (bytes or strings)
         lines = payload
 
     rows: list[dict[str, Any]] = []
+    processed_lines = []
+    
     for raw_line in lines:
+        processed_lines.append(raw_line)
         if isinstance(raw_line, bytes):
             line = raw_line.decode("utf-8", errors="replace").strip()
         else:
@@ -88,6 +101,26 @@ def payload_to_dataframe(payload: Any) -> pd.DataFrame:
         except json.JSONDecodeError:
             # Skip malformed lines silently
             continue
+
+    if not rows and processed_lines:
+        try:
+            decoded_lines = []
+            for l in processed_lines:
+                if isinstance(l, bytes):
+                    decoded_lines.append(l.decode("utf-8", errors="replace"))
+                else:
+                    decoded_lines.append(str(l))
+            full_text = "".join(decoded_lines)
+            
+            parsed = json.loads(full_text)
+            if isinstance(parsed, dict) and "Table" in parsed:
+                table = parsed["Table"]
+                if isinstance(table, list):
+                    return pd.DataFrame(table)
+            elif isinstance(parsed, list):
+                return pd.DataFrame(parsed)
+        except json.JSONDecodeError:
+            pass
 
     return pd.DataFrame(rows)
 
