@@ -202,7 +202,7 @@ CREATE TABLE Finance_bs (
     Corporate_Deposits      FLOAT,
     flag                    VARCHAR(1),
     
-    PRIMARY KEY (Fincode, Year_end, Type),
+    PRIMARY KEY (Fincode, Year_end, Type)
 );
 
 -- Total Column Count: 191

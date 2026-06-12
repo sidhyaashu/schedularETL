@@ -203,7 +203,7 @@ CREATE TABLE Resultsf_IND_Ex1 (
     Flag                    VARCHAR(1),                            -- Updation Flag
     
     -- Constraints
-    PRIMARY KEY (Fincode, Result_Type, Date_End),
+    PRIMARY KEY (Fincode, Result_Type, Date_End)
 );
 
 

@@ -207,7 +207,7 @@ CREATE TABLE Finance_cons_pl (
     flag                    VARCHAR(1),                            -- Updation Flag
     
     -- Constraints
-    PRIMARY KEY (FINCODE, Year_end, TYPE),
+    PRIMARY KEY (FINCODE, Year_end, TYPE)
 );
 
 -- Total Column Count: 195

@@ -7,7 +7,7 @@ CREATE TABLE Registrardata (
     Flag                    VARCHAR(1),                            -- Updation Flag
     
     -- Constraints
-    PRIMARY KEY (FINCODE, RegistrarNo),
+    PRIMARY KEY (FINCODE, RegistrarNo)
 );
 
 

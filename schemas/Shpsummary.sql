@@ -504,7 +504,7 @@ CREATE TABLE Shpsummary (
     flag                    VARCHAR(1),                            -- Updation Flag
     
     -- Constraints
-    PRIMARY KEY (FINCODE, DATE_END),
+    PRIMARY KEY (FINCODE, DATE_END)
 );
 
 

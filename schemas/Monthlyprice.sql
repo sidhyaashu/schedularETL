@@ -21,7 +21,7 @@ CREATE TABLE Monthlyprice (
     flag                    VARCHAR(1),                            -- Updation Flag
     
     -- Constraints
-    PRIMARY KEY (Fincode, Month, Year),
+    PRIMARY KEY (Fincode, Month, Year)
 );
 
 

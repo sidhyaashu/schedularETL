@@ -20,7 +20,7 @@ CREATE TABLE Shp_details (
     Flag                    VARCHAR(1),                            -- Updation Flag
     
     -- Constraints
-    PRIMARY KEY (FINCODE, DATE_END, SRNO),
+    PRIMARY KEY (FINCODE, DATE_END, SRNO)
 );
 
 

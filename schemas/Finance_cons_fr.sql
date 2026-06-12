@@ -200,7 +200,7 @@ CREATE TABLE Finance_cons_fr (
     Flag                    VARCHAR(1),                            -- Updation Flag
     
     -- Constraints
-    PRIMARY KEY (FINCODE, Year_end, TYPE),
+    PRIMARY KEY (FINCODE, Year_end, TYPE)
 );
 
 

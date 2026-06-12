@@ -14,6 +14,10 @@ def payload_to_dataframe(payload: Any) -> pd.DataFrame:
 
     # Case 1: Parsed dictionary (e.g. from legacy response.json())
     if isinstance(payload, dict):
+        if any(k.lower() in ("message", "error") for k in payload):
+            msg_val = str(payload.get("Message", payload.get("message", payload.get("Error", payload.get("error", ""))))).strip().lower()
+            if "no data found" in msg_val or "no record found" in msg_val or "error" in msg_val:
+                return pd.DataFrame()
         table = payload.get("Table")
         if table is None:
             raise ValueError("Payload missing 'Table' key")
@@ -29,11 +33,22 @@ def payload_to_dataframe(payload: Any) -> pd.DataFrame:
     if isinstance(payload, str):
         try:
             parsed = json.loads(payload)
-            if isinstance(parsed, dict) and "Table" in parsed:
-                table = parsed["Table"]
-                if isinstance(table, list):
-                    return pd.DataFrame(table)
+            if isinstance(parsed, dict):
+                if any(k.lower() in ("message", "error") for k in parsed):
+                    msg_val = str(parsed.get("Message", parsed.get("message", parsed.get("Error", parsed.get("error", ""))))).strip().lower()
+                    if "no data found" in msg_val or "no record found" in msg_val or "error" in msg_val:
+                        return pd.DataFrame()
+                if "Table" in parsed:
+                    table = parsed["Table"]
+                    if isinstance(table, list):
+                        return pd.DataFrame(table)
             elif isinstance(parsed, list):
+                if len(parsed) == 1 and isinstance(parsed[0], dict):
+                    item = parsed[0]
+                    if any(k.lower() in ("message", "error") for k in item):
+                        msg_val = str(item.get("Message", item.get("message", item.get("Error", item.get("error", ""))))).strip().lower()
+                        if "no data found" in msg_val or "no record found" in msg_val or "error" in msg_val:
+                            return pd.DataFrame()
                 return pd.DataFrame(parsed)
         except json.JSONDecodeError:
             pass
@@ -48,7 +63,14 @@ def payload_to_dataframe(payload: Any) -> pd.DataFrame:
     
     for raw_line in lines:
         processed_lines.append(raw_line)
-        if isinstance(raw_line, bytes):
+        if isinstance(raw_line, dict):
+            if any(k.lower() in ("message", "error") for k in raw_line):
+                msg_val = str(raw_line.get("Message", raw_line.get("message", raw_line.get("Error", raw_line.get("error", ""))))).strip().lower()
+                if "no data found" in msg_val or "no record found" in msg_val or "error" in msg_val:
+                    continue
+            rows.append(raw_line)
+            continue
+        elif isinstance(raw_line, bytes):
             line = raw_line.decode("utf-8", errors="replace").strip()
         else:
             line = raw_line.strip()
@@ -96,6 +118,11 @@ def payload_to_dataframe(payload: Any) -> pd.DataFrame:
 
         try:
             row = json.loads(line)
+            if isinstance(row, dict):
+                if any(k.lower() in ("message", "error") for k in row):
+                    msg_val = str(row.get("Message", row.get("message", row.get("Error", row.get("error", ""))))).strip().lower()
+                    if "no data found" in msg_val or "no record found" in msg_val or "error" in msg_val:
+                        continue
             if isinstance(row, list):
                 rows.extend(row)
             else:
@@ -118,11 +145,22 @@ def payload_to_dataframe(payload: Any) -> pd.DataFrame:
             full_text = "".join(decoded_lines)
             
             parsed = json.loads(full_text)
-            if isinstance(parsed, dict) and "Table" in parsed:
-                table = parsed["Table"]
-                if isinstance(table, list):
-                    return pd.DataFrame(table)
+            if isinstance(parsed, dict):
+                if any(k.lower() in ("message", "error") for k in parsed):
+                    msg_val = str(parsed.get("Message", parsed.get("message", parsed.get("Error", parsed.get("error", ""))))).strip().lower()
+                    if "no data found" in msg_val or "no record found" in msg_val or "error" in msg_val:
+                        return pd.DataFrame()
+                if "Table" in parsed:
+                    table = parsed["Table"]
+                    if isinstance(table, list):
+                        return pd.DataFrame(table)
             elif isinstance(parsed, list):
+                if len(parsed) == 1 and isinstance(parsed[0], dict):
+                    item = parsed[0]
+                    if any(k.lower() in ("message", "error") for k in item):
+                        msg_val = str(item.get("Message", item.get("message", item.get("Error", item.get("error", ""))))).strip().lower()
+                        if "no data found" in msg_val or "no record found" in msg_val or "error" in msg_val:
+                            return pd.DataFrame()
                 return pd.DataFrame(parsed)
         except json.JSONDecodeError:
             pass

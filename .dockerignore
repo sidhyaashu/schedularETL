@@ -10,3 +10,9 @@ __pycache__/
 *.xlsx
 *.zip
 *.log
+tests
+logs.csv
+LogsAnalysis.md
+Equity_AdditionalInfo.pdf
+API_RequestResponse_Equity.pdf
+CompanyFundamental_DataFeedAPI_Display_Techdoc.pdf

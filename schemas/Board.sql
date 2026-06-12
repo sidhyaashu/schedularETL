@@ -23,7 +23,7 @@ CREATE TABLE Board (
     FLAG                    VARCHAR(1),                            -- Updation Flag
     
     -- Constraints
-    PRIMARY KEY (FINCODE, YRC, SERIALNO, DIRTYPE_ID),
+    PRIMARY KEY (FINCODE, YRC, SERIALNO, DIRTYPE_ID)
 );
 
 

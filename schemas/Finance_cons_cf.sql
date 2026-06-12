@@ -31,7 +31,7 @@ CREATE TABLE Finance_cons_cf (
     Flag                    VARCHAR(1),                            -- Updation Flag
     
     -- Constraints
-    PRIMARY KEY (FINCODE, Year_end, type),
+    PRIMARY KEY (FINCODE, Year_end, type)
 );
 
 

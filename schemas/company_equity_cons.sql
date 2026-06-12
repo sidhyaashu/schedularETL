@@ -41,7 +41,7 @@ CREATE TABLE company_equity_cons (
     STK_Exchange            VARCHAR(25),                           -- Stock Exchange
     
     -- Status
-    Flag                    VARCHAR(1),                            -- Updation Flag
+    Flag                    VARCHAR(1)                            -- Updation Flag
 );
 
 

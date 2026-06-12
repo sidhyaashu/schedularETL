@@ -7,7 +7,7 @@ CREATE TABLE Complistings (
     FLAG                    VARCHAR(1),                            -- Updation Flag
     
     -- Constraints
-    PRIMARY KEY (FINCODE, STK_ID),
+    PRIMARY KEY (FINCODE, STK_ID)
 );
 
 
