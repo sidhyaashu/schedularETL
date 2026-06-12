@@ -115,7 +115,10 @@ def process_single_feed(feed_name: str, engine: Engine = ENGINE, target_date: st
             return _result(feed_name, "EMPTY", http_status=http_status, error_message=msg)
 
         total_rows_received = 0
-        total_processed_rows = 0
+        total_rows_inserted = 0
+        total_rows_updated = 0
+        total_rows_deleted = 0
+        total_rows_unchanged = 0
         total_rows_rejected = 0
         all_rejected_fincodes = []
         is_first_chunk = True
@@ -157,8 +160,11 @@ def process_single_feed(feed_name: str, engine: Engine = ENGINE, target_date: st
                     is_first_chunk = False
 
                 merge = process_dataframe(engine, table_name, df_chunk, feed_name)
-                total_processed_rows += int(merge["rows_upserted"]) + int(merge["rows_deleted"])
-                total_rows_rejected += merge["rows_rejected"]
+                total_rows_inserted  += int(merge["rows_inserted"])
+                total_rows_updated   += int(merge["rows_updated"])
+                total_rows_deleted   += int(merge["rows_deleted"])
+                total_rows_unchanged += int(merge["rows_unchanged"])
+                total_rows_rejected  += merge["rows_rejected"]
                 all_rejected_fincodes.extend(merge["rejected_fincodes"])
 
                 del df_chunk
@@ -176,12 +182,17 @@ def process_single_feed(feed_name: str, engine: Engine = ENGINE, target_date: st
             "SUCCESS",
             http_status=http_status,
             rows_received=total_rows_received,
-            processed_rows=total_processed_rows,
+            rows_inserted=total_rows_inserted,
+            rows_updated=total_rows_updated,
+            rows_deleted=total_rows_deleted,
+            rows_unchanged=total_rows_unchanged,
             rejected_fincodes=all_rejected_fincodes,
         )
 
         logger.info(
-            f"SUCCESS {feed_name}: received={total_rows_received}, processed={total_processed_rows}, "
+            f"SUCCESS {feed_name}: received={total_rows_received}, "
+            f"inserted={total_rows_inserted}, updated={total_rows_updated}, "
+            f"deleted={total_rows_deleted}, unchanged={total_rows_unchanged}, "
             f"rejected={total_rows_rejected}, duration={int(time.time() - started)}s"
         )
 
@@ -190,7 +201,7 @@ def process_single_feed(feed_name: str, engine: Engine = ENGINE, target_date: st
             "SUCCESS",
             http_status=http_status,
             rows_received=total_rows_received,
-            processed_rows=total_processed_rows,
+            processed_rows=total_rows_inserted + total_rows_updated + total_rows_deleted,
             rows_rejected=total_rows_rejected,
             rejected_fincodes=all_rejected_fincodes,
         )

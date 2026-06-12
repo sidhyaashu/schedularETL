@@ -64,7 +64,7 @@ class Settings:
     results_minute: int = int(os.getenv("RESULTS_MINUTE", "1"))
     results_final_hour: int = int(os.getenv("RESULTS_FINAL_HOUR", "23"))
     results_final_minute: int = int(os.getenv("RESULTS_FINAL_MINUTE", "31"))
-    results_retry_allowed_windows: str = os.getenv("RESULTS_RETRY_ALLOWED_WINDOWS", "15,18,21,23,final")
+    results_retry_allowed_windows: str = os.getenv("RESULTS_RETRY_ALLOWED_WINDOWS", "9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,final")
     results_extra_retry_minutes: str = os.getenv("RESULTS_EXTRA_RETRY_MINUTES", "10")
     results_max_extra_hits: int = int(os.getenv("RESULTS_MAX_EXTRA_HITS", "5"))
     eod_start_hour: int = int(os.getenv("EOD_START_HOUR", "22"))

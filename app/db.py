@@ -62,24 +62,24 @@ def run_auto_migration(engine: Engine) -> None:
 
     logger.info(f"Found {len(sql_files)} SQL schema files. Checking table existence...")
 
-    with engine.begin() as conn:
-        for f in sql_files:
-            table_name = f.stem
-            # Check if this table already exists (case-insensitive match)
-            if table_name.lower() in existing_tables:
-                continue
+    for f in sql_files:
+        table_name = f.stem
+        # Check if this table already exists (case-insensitive match)
+        if table_name.lower() in existing_tables:
+            continue
+        
+        logger.info(f"Table '{table_name}' not found. Executing {f}...")
+        try:
+            sql_content = f.read_text(encoding="utf-8")
+            # Remove SQL comments
+            sql_content = re.sub(r'--.*', '', sql_content)
+            # Clean trailing comma before closing parenthesis
+            sql_content = re.sub(r',\s*\)', ')', sql_content)
             
-            logger.info(f"Table '{table_name}' not found. Executing {f}...")
-            try:
-                sql_content = f.read_text(encoding="utf-8")
-                # Remove SQL comments
-                sql_content = re.sub(r'--.*', '', sql_content)
-                # Clean trailing comma before closing parenthesis
-                sql_content = re.sub(r',\s*\)', ')', sql_content)
-                
-                # Execute the table creation SQL
+            # Execute the table creation SQL in its own transaction
+            with engine.begin() as conn:
                 conn.execute(text(sql_content))
-                logger.info(f"Successfully created table '{table_name}'.")
-            except Exception as e:
-                logger.error(f"Failed to execute schema file {f}: {e}")
-                raise
+            logger.info(f"Successfully created table '{table_name}'.")
+        except Exception as e:
+            logger.error(f"Failed to execute schema file {f}: {e}")
+            raise

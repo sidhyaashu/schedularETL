@@ -1,6 +1,7 @@
 import json
 from typing import Any
 import pandas as pd
+from app.logger import logger
 
 
 def normalize_column_name(name: str) -> str:
@@ -43,6 +44,7 @@ def payload_to_dataframe(payload: Any) -> pd.DataFrame:
 
     rows: list[dict[str, Any]] = []
     processed_lines = []
+    skipped_count = 0
     
     for raw_line in lines:
         processed_lines.append(raw_line)
@@ -99,8 +101,11 @@ def payload_to_dataframe(payload: Any) -> pd.DataFrame:
             else:
                 rows.append(row)
         except json.JSONDecodeError:
-            # Skip malformed lines silently
+            skipped_count += 1
             continue
+
+    if skipped_count > 0:
+        logger.warning(f"payload_to_dataframe: skipped {skipped_count} malformed JSON lines")
 
     if not rows and processed_lines:
         try:

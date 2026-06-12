@@ -30,6 +30,7 @@ def _run_company_master() -> None:
 def _run_results(window_label: str) -> None:
     allowed = {x.strip() for x in settings.results_retry_allowed_windows.split(",") if x.strip()}
     if window_label not in allowed:
+        logger.info(f"Results: window '{window_label}' not in allowed list — skipped")
         return
 
     target_date = settings.api_date or get_now().strftime("%d%m%Y")
@@ -62,12 +63,14 @@ def register_jobs(scheduler: BlockingScheduler) -> None:
     scheduler.add_job(lambda: _run_results("final"), "cron", hour=settings.results_final_hour, minute=settings.results_final_minute, id="results_final", replace_existing=True, max_instances=1, coalesce=True)
 
     base = get_now().replace(hour=settings.eod_start_hour, minute=settings.eod_start_minute, second=0, microsecond=0)
-    for idx, feed in enumerate(EOD_FEEDS):
+    minute_offset = 0
+    for feed in EOD_FEEDS:
         # We skip scheduling consolidated feeds separately since they are triggered sequentially by their standalone counterparts
         if feed in CONSOLIDATED_PAIRS.values():
             continue
-        run_dt = base + timedelta(minutes=idx)
+        run_dt = base + timedelta(minutes=minute_offset)
         scheduler.add_job(lambda f=feed: _run_eod_feed(f), "cron", hour=run_dt.hour, minute=run_dt.minute, id=f"eod_{feed.lower()}", replace_existing=True, max_instances=1, coalesce=True)
+        minute_offset += 1
 
     scheduler.add_job(cleanup_logs, "cron", hour=0, minute=30, id="cleanup_old_ingestion_logs", replace_existing=True, max_instances=1, coalesce=True)
 

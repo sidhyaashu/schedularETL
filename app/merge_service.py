@@ -124,6 +124,8 @@ def _upsert_sql(target: str, staging: str, target_cols: list[str], pk_cols: list
     pk_order = ", ".join(f's."{c}"' for c in pk_cols)
     select_cols = ", ".join(f's."{c}"' for c in target_cols)
 
+    # RETURNING (xmax = 0) distinguishes inserts (xmax=0) from updates (xmax!=0).
+    # Rows that conflict but are unchanged (IS DISTINCT FROM = false) are NOT returned.
     return f'''
         INSERT INTO "{target}" AS t ({col_list})
         SELECT {select_cols}
@@ -134,30 +136,41 @@ def _upsert_sql(target: str, staging: str, target_cols: list[str], pk_cols: list
             ORDER BY {pk_order}
         ) s
         ON CONFLICT ({conflict_cols}) {action}
+        RETURNING (xmax = 0) AS is_insert
     '''
 
 
-def _process_chunk(conn: Any, table_name: str, chunk: pd.DataFrame, insert_cols: list[str], pk_cols: list[str], target_has_flag: bool) -> tuple[int, int]:
+def _process_chunk(conn: Any, table_name: str, chunk: pd.DataFrame, insert_cols: list[str], pk_cols: list[str], target_has_flag: bool) -> tuple[int, int, int, int]:
+    """Returns (inserted, updated, deleted, unchanged)."""
     staging = f"stg_{table_name.lower()}_{uuid.uuid4().hex[:10]}"
     conn.execute(text(f'CREATE TEMP TABLE "{staging}" (LIKE "{table_name}" INCLUDING DEFAULTS)'))
     if not target_has_flag:
         conn.execute(text(f'ALTER TABLE "{staging}" ADD COLUMN flag TEXT'))
-        
+
     _copy_to_staging(conn, chunk, staging, insert_cols)
 
     deleted = 0
-    upserted = 0
+    inserted = 0
+    updated = 0
     del_candidates = int(conn.execute(text(f'''SELECT COUNT(*) FROM "{staging}" WHERE flag = 'D' ''')).scalar() or 0)
     up_candidates = int(conn.execute(text(f'''SELECT COUNT(*) FROM "{staging}" WHERE flag IN ('A','O') ''')).scalar() or 0)
 
     if del_candidates:
         deleted = int(conn.execute(text(_delete_sql(table_name, staging, pk_cols))).rowcount or 0)
+
     if up_candidates:
         target_cols = [c for c in insert_cols if c != "flag"] if not target_has_flag else insert_cols
-        upserted = int(conn.execute(text(_upsert_sql(table_name, staging, target_cols, pk_cols))).rowcount or 0)
+        result = conn.execute(text(_upsert_sql(table_name, staging, target_cols, pk_cols)))
+        rows = result.fetchall()
+        # xmax = 0  → fresh INSERT (row did not exist before)
+        # xmax != 0 → UPDATE (row existed, values changed)
+        # not returned → row existed with identical values (unchanged)
+        inserted = sum(1 for r in rows if r[0])
+        updated = sum(1 for r in rows if not r[0])
 
+    unchanged = max(0, up_candidates - inserted - updated)
     conn.execute(text(f'DROP TABLE IF EXISTS "{staging}"'))
-    return upserted, deleted
+    return inserted, updated, deleted, unchanged
 
 
 def process_dataframe(engine: Engine, table_name: str, df: pd.DataFrame, feed_name: str) -> dict[str, Any]:
@@ -173,24 +186,45 @@ def process_dataframe(engine: Engine, table_name: str, df: pd.DataFrame, feed_na
         df = df.drop_duplicates(subset=[pk.lower() for pk in pk_cols], keep="last")
 
     if df.empty:
-        return {"rows_upserted": 0, "rows_deleted": 0, "rows_rejected": len(rejected_fincodes), "rejected_fincodes": rejected_fincodes}
+        return {
+            "rows_inserted": 0, "rows_updated": 0, "rows_deleted": 0,
+            "rows_unchanged": 0, "rows_rejected": len(rejected_fincodes),
+            "rejected_fincodes": rejected_fincodes,
+        }
 
     insert_cols = [c for c in db_cols if c in df.columns]
     if "flag" in df.columns and "flag" not in insert_cols:
         insert_cols.append("flag")
 
     target_has_flag = "flag" in db_cols
-    total_upserted = 0
+    total_inserted = 0
+    total_updated = 0
     total_deleted = 0
+    total_unchanged = 0
 
     with engine.begin() as conn:
         for start in range(0, len(df), settings.etl_batch_size):
             chunk = df.iloc[start:start + settings.etl_batch_size].copy()
-            upserted, deleted = _process_chunk(conn, table_name, chunk, insert_cols, pk_cols, target_has_flag)
-            total_upserted += upserted
+            inserted, updated, deleted, unchanged = _process_chunk(
+                conn, table_name, chunk, insert_cols, pk_cols, target_has_flag
+            )
+            total_inserted += inserted
+            total_updated += updated
             total_deleted += deleted
-            logger.debug(f"{feed_name}: batch {min(start + len(chunk), len(df))}/{len(df)}, upserted={total_upserted}, deleted={total_deleted}")
+            total_unchanged += unchanged
+            logger.debug(
+                f"{feed_name}: batch {min(start + len(chunk), len(df))}/{len(df)}, "
+                f"inserted={total_inserted}, updated={total_updated}, "
+                f"deleted={total_deleted}, unchanged={total_unchanged}"
+            )
             if settings.etl_batch_sleep > 0:
                 time.sleep(settings.etl_batch_sleep)
 
-    return {"rows_upserted": total_upserted, "rows_deleted": total_deleted, "rows_rejected": len(rejected_fincodes), "rejected_fincodes": rejected_fincodes}
+    return {
+        "rows_inserted": total_inserted,
+        "rows_updated": total_updated,
+        "rows_deleted": total_deleted,
+        "rows_unchanged": total_unchanged,
+        "rows_rejected": len(rejected_fincodes),
+        "rejected_fincodes": rejected_fincodes,
+    }

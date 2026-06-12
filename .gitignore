@@ -6,3 +6,5 @@ __pycache__
 .env 
 x.md
 tests
+logs.csv
+LogsAnalysis.md

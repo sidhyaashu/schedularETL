@@ -41,31 +41,45 @@ def finish_ingestion_log(
     http_status: int | None = None,
     rows_received: int = 0,
     processed_rows: int = 0,
+    rows_inserted: int = 0,
+    rows_updated: int = 0,
+    rows_deleted: int = 0,
+    rows_unchanged: int = 0,
     rejected_fincodes: list[Any] | None = None,
     error_message: str | None = None,
 ) -> None:
     rejected_fincodes = rejected_fincodes or []
+    # processed_rows = total rows that caused a DB change (inserts + updates + deletes)
+    effective_processed = processed_rows or (rows_inserted + rows_updated + rows_deleted)
     with engine.begin() as conn:
         conn.execute(
             text("""
                 UPDATE ingestion_run_logs
-                SET status = :status,
-                    http_status = :http_status,
-                    rows_received = :rows_received,
-                    processed_rows = :processed_rows,
+                SET status            = :status,
+                    http_status       = :http_status,
+                    rows_received     = :rows_received,
+                    processed_rows    = :processed_rows,
+                    rows_inserted     = :rows_inserted,
+                    rows_updated      = :rows_updated,
+                    rows_deleted      = :rows_deleted,
+                    rows_unchanged    = :rows_unchanged,
                     rejected_fincodes = CAST(:rejected_fincodes AS jsonb),
-                    error_message = :error_message,
-                    finished_at = now()
+                    error_message     = :error_message,
+                    finished_at       = now()
                 WHERE id = :log_id
             """),
             {
-                "log_id": log_id,
-                "status": status,
-                "http_status": http_status,
-                "rows_received": rows_received,
-                "processed_rows": processed_rows,
+                "log_id":            log_id,
+                "status":            status,
+                "http_status":       http_status,
+                "rows_received":     rows_received,
+                "processed_rows":    effective_processed,
+                "rows_inserted":     rows_inserted,
+                "rows_updated":      rows_updated,
+                "rows_deleted":      rows_deleted,
+                "rows_unchanged":    rows_unchanged,
                 "rejected_fincodes": json.dumps(rejected_fincodes, default=str),
-                "error_message": error_message,
+                "error_message":     error_message,
             },
         )
 
