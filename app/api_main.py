@@ -164,7 +164,14 @@ def process_single_feed(feed_name: str, engine: Engine = ENGINE, target_date: st
                 total_rows_updated   += int(merge["rows_updated"])
                 total_rows_deleted   += int(merge["rows_deleted"])
                 total_rows_unchanged += int(merge["rows_unchanged"])
-                total_rows_rejected  += merge["rows_rejected"]
+                
+                chunk_processed = (
+                    int(merge["rows_inserted"]) + 
+                    int(merge["rows_updated"]) + 
+                    int(merge["rows_deleted"]) + 
+                    int(merge["rows_unchanged"])
+                )
+                total_rows_rejected += (chunk_rows - chunk_processed)
                 all_rejected_fincodes.extend(merge["rejected_fincodes"])
 
                 del df_chunk
@@ -186,6 +193,7 @@ def process_single_feed(feed_name: str, engine: Engine = ENGINE, target_date: st
             rows_updated=total_rows_updated,
             rows_deleted=total_rows_deleted,
             rows_unchanged=total_rows_unchanged,
+            rows_rejected=total_rows_rejected,
             rejected_fincodes=all_rejected_fincodes,
         )
 

@@ -10,17 +10,18 @@ CREATE TABLE IF NOT EXISTS ingestion_run_logs (
     rows_updated BIGINT DEFAULT 0,
     rows_deleted BIGINT DEFAULT 0,
     rows_unchanged BIGINT DEFAULT 0,
+    rows_rejected BIGINT DEFAULT 0,
     rejected_fincodes JSONB DEFAULT '[]'::jsonb,
     error_message TEXT,
     started_at TIMESTAMP NOT NULL DEFAULT now(),
     finished_at TIMESTAMP
 );
 
--- Add new visibility columns to existing tables (safe on fresh installs too)
 ALTER TABLE ingestion_run_logs ADD COLUMN IF NOT EXISTS rows_inserted  BIGINT DEFAULT 0;
 ALTER TABLE ingestion_run_logs ADD COLUMN IF NOT EXISTS rows_updated   BIGINT DEFAULT 0;
 ALTER TABLE ingestion_run_logs ADD COLUMN IF NOT EXISTS rows_deleted   BIGINT DEFAULT 0;
 ALTER TABLE ingestion_run_logs ADD COLUMN IF NOT EXISTS rows_unchanged BIGINT DEFAULT 0;
+ALTER TABLE ingestion_run_logs ADD COLUMN IF NOT EXISTS rows_rejected  BIGINT DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_ingestion_run_logs_requested_date
 ON ingestion_run_logs(requested_date);

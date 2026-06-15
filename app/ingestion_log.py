@@ -45,6 +45,7 @@ def finish_ingestion_log(
     rows_updated: int = 0,
     rows_deleted: int = 0,
     rows_unchanged: int = 0,
+    rows_rejected: int = 0,
     rejected_fincodes: list[Any] | None = None,
     error_message: str | None = None,
 ) -> None:
@@ -63,6 +64,7 @@ def finish_ingestion_log(
                     rows_updated      = :rows_updated,
                     rows_deleted      = :rows_deleted,
                     rows_unchanged    = :rows_unchanged,
+                    rows_rejected     = :rows_rejected,
                     rejected_fincodes = CAST(:rejected_fincodes AS jsonb),
                     error_message     = :error_message,
                     finished_at       = now()
@@ -78,6 +80,7 @@ def finish_ingestion_log(
                 "rows_updated":      rows_updated,
                 "rows_deleted":      rows_deleted,
                 "rows_unchanged":    rows_unchanged,
+                "rows_rejected":     rows_rejected,
                 "rejected_fincodes": json.dumps(rejected_fincodes, default=str),
                 "error_message":     error_message,
             },
