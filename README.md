@@ -9,7 +9,7 @@ A production-grade, highly efficient, and memory-safe ETL pipeline that ingests,
 * **Flexible JSON/NDJSON Parser**: Streams and processes records line-by-line using Python generators, keeping the memory footprint low. Supports standard single-line JSON, multi-line prettified JSON arrays, and streaming NDJSON formats.
 * **Auto-Migrations**: Inspects the database catalog on startup and executes missing SQL schemas from the `schemas/` directory dynamically, with automatic cleanup of trailing SQL syntax anomalies.
 * **Dual-Stage Deduplication**: Drops duplicate records within the current batch in Pandas, followed by a database-level `ON CONFLICT` merge query to prevent double-inserting unchanged data.
-* **Staggered EOD Scheduling**: Launches the 23 End-of-Day feeds spaced 1 minute apart to prevent network and database CPU spikes.
+* **Staggered EOD Scheduling**: Launches the 25 End-of-Day feeds spaced 1 minute apart to prevent network and database CPU spikes.
 * **Sequential Consolidated Execution**: Sequentially runs consolidated feeds immediately after standalone counterpart feeds complete successfully, reducing API load and ensuring schema ordering (e.g., `Finance_cons_bs` runs immediately after `Finance_bs`).
 * **Startup Recovery Check**: Automatically detects missed scheduled morning runs of `Company_master` on service startup and triggers an immediate execution.
 * **Ingestion Diagnostics**: Logs every run state, row count, and error traceback in a central database audit table (`ingestion_run_logs`) with an automatic retention cleanup.
@@ -36,7 +36,7 @@ schedularETL/
 │   ├── scheduler.py           # APScheduler cron schedule and pipeline sequencing logic
 │   ├── utils.py               # Shared utility functions and database helper cache
 │   └── validation_service.py  # Incoming data validation and schema-compliance checks
-├── schemas/                   # SQL files defining the 26 financial tables
+├── schemas/                   # SQL files defining the 28 financial tables
 │   ├── Board.sql
 │   ├── Company_master.sql
 │   └── ...
@@ -46,7 +46,8 @@ schedularETL/
 │   ├── test_scenarios.py          # Core pipeline scenario and validation tests
 │   ├── test_end_to_end_pipeline.py# Mocked E2E pipeline flow for Company_master
 │   ├── test_production_fincode.py  # Production simulation and metrics test
-│   └── test_advanced_pipeline.py  # Full 26-feed integration and penetration test suite
+│   ├── test_advanced_pipeline.py  # Full 28-feed integration and penetration test suite
+│   └── test_related_parties.py    # RelatedParties_Transaction integration test suite
 ├── docker-compose.yml         # Production deployment configuration
 ├── Dockerfile                 # Application Docker builder
 ├── requirements.txt           # Python application dependencies
@@ -150,9 +151,9 @@ In production, feeds are requested from Accord based on their daily publish time
    * Night runs at `10:31 PM` and `11:00 PM`
    * **Missed Run Startup Check**: If the container is restarted/started after `10:01 AM` and no runs have yet been logged for the day, an immediate `Company_master` sync is triggered on startup to recover.
 2. **Results (`Resultsf_IND_Ex1`, `Resultsf_IND_Cons_Ex1`)**: Checked hourly at minute `1` between 9:00 AM and 11:00 PM, plus a final run at `11:31 PM`.
-3. **End of Day (EOD) Feeds (23 feeds)**: Run once daily starting at `10:31 PM`.
+3. **End of Day (EOD) Feeds (25 feeds)**: Run once daily starting at `10:31 PM`.
    * **Staggering**: The scheduler launches standalone EOD feeds exactly **1 minute apart** (e.g., `22:31`, `22:32`, `22:33`...) to balance API connections.
-   * **Sequencing**: Consolidated feeds (`Finance_cons_bs`, `Finance_cons_pl`, `Finance_cons_cf`, `Finance_cons_fr`, and `company_equity_cons`) are not scheduled individually. Instead, they are triggered **sequentially** immediately after their corresponding standalone feeds finish successfully.
+   * **Sequencing**: Consolidated feeds (`Finance_cons_bs`, `Finance_cons_pl`, `Finance_cons_cf`, `Finance_cons_fr`, `company_equity_cons`, and `RelatedParties_Transaction_Cons`) are not scheduled individually. Instead, they are triggered **sequentially** immediately after their corresponding standalone feeds finish successfully.
 
 ---
 
@@ -220,7 +221,7 @@ The repository includes a comprehensive, automated test suite designed to valida
 
 To run tests within the Docker environment (recommended):
 ```bash
-# Run the complete integration and penetration test suite (26 feeds)
+# Run the complete integration and penetration test suite (28 feeds)
 docker compose run --rm scheduler_ingestion python tests/test_advanced_pipeline.py
 
 # Run Scenario-based tests (Insert, Update, Delete, Deduplication, Validation check)
@@ -231,6 +232,9 @@ docker compose run --rm scheduler_ingestion python tests/test_end_to_end_pipelin
 
 # Run simulation test targeting production fincodes
 docker compose run --rm scheduler_ingestion python tests/test_production_fincode.py
+
+# Run Related Parties Transactions integration test (with volume mount)
+docker compose run --rm -v /home/azureuser/schedularETL/tests:/app/tests scheduler_ingestion python tests/test_related_parties.py
 ```
 
 To run tests locally on the host machine (assumes PostgreSQL is running and environment variable configs are set in `.env`):
@@ -239,4 +243,5 @@ python tests/test_scenarios.py
 python tests/test_end_to_end_pipeline.py
 python tests/test_production_fincode.py
 python tests/test_advanced_pipeline.py
+python tests/test_related_parties.py
 ```

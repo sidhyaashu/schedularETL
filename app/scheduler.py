@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.blocking import BlockingScheduler
 from app.api_main import process_single_feed
 from app.cleanup_service import cleanup_logs
+from app.digital_reports_service import process_digital_reports
 from app.config import COMPANY_MASTER_FEEDS, EOD_FEEDS, RESULTS_FEEDS, settings
 from app.logger import logger
 
@@ -14,6 +15,7 @@ CONSOLIDATED_PAIRS = {
     "Finance_cf": "Finance_cons_cf",
     "Finance_fr": "Finance_cons_fr",
     "company_equity": "company_equity_cons",
+    "RelatedParties_Transaction": "RelatedParties_Transaction_Cons",
 }
 
 
@@ -73,6 +75,18 @@ def register_jobs(scheduler: BlockingScheduler) -> None:
         minute_offset += 1
 
     scheduler.add_job(cleanup_logs, "cron", hour=0, minute=30, id="cleanup_old_ingestion_logs", replace_existing=True, max_instances=1, coalesce=True)
+
+    # EOD Digital Reports PDF sync
+    scheduler.add_job(
+        process_digital_reports,
+        "cron",
+        hour=settings.digital_report_hour,
+        minute=settings.digital_report_minute,
+        id="digital_report_eod",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
 
 
 def start_scheduler() -> None:

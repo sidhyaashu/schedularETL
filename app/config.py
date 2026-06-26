@@ -71,6 +71,14 @@ class Settings:
     eod_start_minute: int = int(os.getenv("EOD_START_MINUTE", "31"))
     eod_retry_offsets_minutes: str = os.getenv("EOD_RETRY_OFFSETS_MINUTES", "10,30,60")
     eod_max_extra_hits_per_feed: int = int(os.getenv("EOD_MAX_EXTRA_HITS_PER_FEED", "3"))
+    ftp_url: str = os.getenv("FTP_URL", "ftpservice.acedatafeed.com")
+    ftp_user: str = os.getenv("FTP_USER", "FinAiGlobal_Report")
+    ftp_password: str = os.getenv("FTP_PASSWORD", "finaiglobal@08apr26")
+    ftp_port: int = int(os.getenv("FTP_PORT", "21"))
+    digital_report_hour: int = int(os.getenv("DIGITAL_REPORT_HOUR", "22"))
+    digital_report_minute: int = int(os.getenv("DIGITAL_REPORT_MINUTE", "30"))
+    azure_storage_connection_string: str = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
+    azure_storage_container_name: str = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "digital-reports-pdf")
 
 
 
@@ -79,11 +87,14 @@ settings = Settings()
 FEED_SECTIONS = {
     "company_equity": "CompanyEquity",
     "company_equity_cons": "CompanyEquity",
+    "RelatedParties_Transaction": "Extra",
+    "RelatedParties_Transaction_Cons": "Extra",
 }
 
 COMPANY_MASTER_FEEDS = ["Company_master"]
 RESULTS_FEEDS = ["Resultsf_IND_Ex1", "Resultsf_IND_Cons_Ex1"]
 EOD_FEEDS = [
+    "RelatedParties_Transaction", "RelatedParties_Transaction_Cons",
     "Industrymaster_Ex1", "Housemaster", "Stockexchangemaster", "Registrarmaster",
     "Shp_catmaster_2", "Companyaddress", "Board", "Registrardata", "Complistings",
     "Finance_bs", "Finance_cons_bs", "Finance_pl", "Finance_cons_pl", "Finance_cf",
@@ -118,6 +129,8 @@ PRIMARY_KEYS = {
     "shp_details": ["fincode", "date_end", "srno"],
     "monthlyprice": ["fincode", "month", "year"],
     "nse_monthprice": ["fincode", "month", "year"],
+    "relatedparties_transaction": ["fincode", "year_end", "srno"],
+    "relatedparties_transaction_cons": ["fincode", "year_end", "srno"],
 }
 
 COLUMN_RENAMES = {

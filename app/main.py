@@ -61,13 +61,17 @@ def main() -> None:
     
     if os.getenv("RUN_ONCE") == "true" or "--run-once" in sys.argv:
         logger.info("[TEST-RUN] Run-once mode activated. Ingesting all feeds immediately...")
-        all_feeds = COMPANY_MASTER_FEEDS + RESULTS_FEEDS + EOD_FEEDS
+        all_feeds = COMPANY_MASTER_FEEDS + RESULTS_FEEDS + EOD_FEEDS + ["DigitalReport"]
         success_count = 0
         failed_feeds = []
 
         for feed in all_feeds:
             try:
-                res = process_single_feed(feed)
+                if feed == "DigitalReport":
+                    from app.digital_reports_service import process_digital_reports
+                    res = process_digital_reports()
+                else:
+                    res = process_single_feed(feed)
                 status = res.get("status")
                 if status in ("SUCCESS", "NO_CONTENT"):
                     success_count += 1
